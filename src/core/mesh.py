@@ -52,6 +52,52 @@ class Mesh:
             raise KeyError(f'Node {node.id} does already exist!')
         self.nodes[node.id] = node
 
+    def show(self) -> None:
+        fig, axs = plt.subplots(nrows=3)
+        legend_entry = False
+        for elementid, conn in self.elements.items():
+            node_ids = conn.node_ids
+            x1 = self.nodes[node_ids[0]].coordinates()[0]
+            y1 = self.nodes[node_ids[0]].coordinates()[1]
+            z1 = self.nodes[node_ids[0]].coordinates()[2]
+            x2 = self.nodes[node_ids[1]].coordinates()[0]
+            y2 = self.nodes[node_ids[1]].coordinates()[1]
+            z2 = self.nodes[node_ids[1]].coordinates()[2]
+            if not legend_entry:
+                axs[0].plot([x1, x2], [y1, y2], ls='-', color='green', label='Element')
+                legend_entry=True
+            else:
+                axs[0].plot([x1, x2], [y1, y2], ls='-', color='green')
+            axs[1].plot([z1, z2], [y1, y2], ls='-', color='green')
+            axs[2].plot([z1, z2], [x1, x2], ls='-', color='green')
+            axs[0].text( (x1 + x2) / 2, (y1 + y2) / 2, f'{elementid}', color='green', ha='center', va='bottom')
+            axs[1].text( (z1 + z2) / 2, (y1 + y2) / 2, f'{elementid}', color='green', ha='center', va='bottom')
+            axs[2].text( (z1 + z2) / 2, (x1 + x2) / 2, f'{elementid}', color='green', ha='center', va='bottom')
+
+        legend_entry = False
+        for nodeid, node in self.nodes.items():
+            if not legend_entry:
+                axs[0].plot(node.coordinates()[0], node.coordinates()[1], 'o', ls='',color='red', label='Node')
+                legend_entry=True
+            else:
+                axs[0].plot(node.coordinates()[0], node.coordinates()[1], 'o', ls='', color='red')
+            axs[1].plot(node.coordinates()[2], node.coordinates()[0], 'o', ls='', color='red')
+            axs[2].plot(node.coordinates()[2], node.coordinates()[1], 'o', ls='', color='red')
+
+            axs[0].text( node.coordinates()[0], node.coordinates()[1], f'{nodeid}', color='red', ha='center', va='bottom')
+            axs[1].text( node.coordinates()[2], node.coordinates()[1], f'{nodeid}', color='red', ha='center', va='bottom')
+            axs[2].text( node.coordinates()[2], node.coordinates()[0], f'{nodeid}', color='red', ha='center', va='bottom')
+
+        axs[0].set_xlabel('X [m]')
+        axs[0].set_ylabel('Y [m]')
+        axs[1].set_xlabel('Z [m]')
+        axs[1].set_ylabel('X [m]')
+        axs[2].set_xlabel('Z [m]')
+        axs[2].set_ylabel('Y [m]')
+        axs[0].legend()
+        plt.show()
+        pass
+
 def get_element_direction(self, element_id: int) -> np.ndarray:
     """
     Calculates unit vector in element direction.
