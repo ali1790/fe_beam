@@ -98,27 +98,27 @@ class Mesh:
         plt.show()
         pass
 
-def get_element_direction(self, element_id: int) -> np.ndarray:
-    """
-    Calculates unit vector in element direction.
-    """
-    nodes = self.get_element_nodes(element_id)
+    def get_element_direction(self, element_id: int) -> np.ndarray:
+        """
+        Calculates unit vector in element direction.
+        """
+        nodes = self.get_element_nodes(element_id)
 
-    if len(nodes) != 2:
-        raise ValueError(
-            "Only defined for linear elements."
-        )
+        if len(nodes) != 2:
+            raise ValueError(
+                "Only defined for linear elements."
+            )
 
-    x1 = nodes[0].coordinates()
-    x2 = nodes[1].coordinates()
+        x1 = nodes[0].coordinates()
+        x2 = nodes[1].coordinates()
 
-    v = x2 - x1
-    L = np.linalg.norm(v)
+        v = x2 - x1
+        L = np.linalg.norm(v)
 
-    if L <= 0.0:
-        raise ValueError("Element length  not positive.")
+        if L <= 0.0:
+            raise ValueError("Element length  not positive.")
 
-    return v / L
+        return v / L
 
     def get_element_length(self, element_id: int) -> float:
         """
@@ -220,7 +220,7 @@ def create_test_mesh():
     element = 0
     nodes  = {k: Node(k, v, x=0, y=0) for k, v in enumerate(z)}
 
-    for k, v in nodes.items():
+    for v in nodes.values():
         mesh.add_node(v)
     
     for element_id, node_id in enumerate( list(nodes.keys())[:-1:] ):
