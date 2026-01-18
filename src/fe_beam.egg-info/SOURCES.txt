@@ -1,0 +1,17 @@
+README.md
+pyproject.toml
+src/fe_beam/__init__.py
+src/fe_beam/initial_tests.py
+src/fe_beam.egg-info/PKG-INFO
+src/fe_beam.egg-info/SOURCES.txt
+src/fe_beam.egg-info/dependency_links.txt
+src/fe_beam.egg-info/requires.txt
+src/fe_beam.egg-info/top_level.txt
+src/fe_beam/core/assembly.py
+src/fe_beam/core/boundary_conditions.py
+src/fe_beam/core/dof.py
+src/fe_beam/core/mesh.py
+src/fe_beam/core/solvers.py
+src/fe_beam/elements/base_element.py
+src/fe_beam/elements/timoshenko_beam.py
+src/fe_beam/matrices/element_matrices.py

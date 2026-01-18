@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fe_beam"
+version = "0.1.0"
+description = "Package able to perform 3D beam simulations based on ANSYS cbmx and cbmd matrices"
+authors = [{ name="Alex", email="ihre@email.de" }]
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "requests>=2.31"
+]

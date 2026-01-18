@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import List, Tuple, Optional, Sequence
 import numpy as np
 
-from elements.base_element import Element
-from matrices.element_matrices import ElementMatrix
+from fe_beam.elements.base_element import Element
+from fe_beam.matrices.element_matrices import ElementMatrix
 #from materials.beam_material import BeamMaterial
 
 

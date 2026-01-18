@@ -1,11 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse.linalg import spsolve
-from core.mesh import ElementConnectivity, Mesh, Node
-from elements.timoshenko_beam import SectionConstitutive, TimoshenkoBeamElement
-from core.dof import DofManager
-from core.assembly import assemble_global_matrices
-from core.boundary_conditions import DirichletBC, NeumannBC, build_load_vector, apply_dirichlet_static, apply_dirichlet_harmonic
+from fe_beam.core.mesh import ElementConnectivity, Mesh, Node
+from fe_beam.elements.timoshenko_beam import SectionConstitutive, TimoshenkoBeamElement
+from fe_beam.core.dof import DofManager
+from fe_beam.core.assembly import assemble_global_matrices
+from fe_beam.core.boundary_conditions import DirichletBC, NeumannBC, build_load_vector, apply_dirichlet_static, apply_dirichlet_harmonic
 
 def create_ansys_matrices_circle_euler(r):
     A = np.pi * r**2

@@ -26,7 +26,7 @@ except ImportError as e:
         "scipy is required for solvers (scipy.sparse, scipy.sparse.linalg)."
     ) from e
 
-from core.boundary_conditions import (
+from fe_beam.core.boundary_conditions import (
     DirichletBC,
     ReducedSystem,
     apply_dirichlet_static,
