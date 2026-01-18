@@ -18,8 +18,8 @@ class Node:
     '''Mesh node in 3d space'''
     id: int 
     z: float
-    x: float = .0
-    y: float = .0
+    x: float 
+    y: float 
     
     def coordinates(self) -> np.ndarray:
         return np.array([self.x, self.y, self.z], dtype=float)
