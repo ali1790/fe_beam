@@ -251,9 +251,12 @@ def build_dynamic_stiffness(
     If C is None, it is treated as zero.
     """
     # Interpret DMPRAT as structural damping coefficient via g = 2*dmprat
+    #https://innovationspace.ansys.com/knowledge/forums/topic/is-the-damping-value-specified-by-the-dmpstr-command-related-to-the-value-specified-by-the-dmprat-command-in-a-full-harmonic-analysis/?utm_source=chatgpt.com
     g = 2.0 * float(dmprat)
+
     Kc = _to_csr(K).astype(complex) * (1.0 + 1j * g)
     Mc = _to_csr(M).astype(complex)
+
     if C is None:
         return (Kc - (omega**2) * Mc).tocsr()
 
