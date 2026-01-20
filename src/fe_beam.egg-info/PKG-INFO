@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: fe_beam
+Version: 0.1.0
+Summary: Package able to perform 3D beam simulations based on ANSYS cbmx and cbmd matrices
+Author-email: Alex <ihre@email.de>
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Requires-Dist: requests>=2.31
+
+# fe_beam

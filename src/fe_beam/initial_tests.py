@@ -1,36 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.sparse.linalg import spsolve
-from core.mesh import ElementConnectivity, Mesh, Node
-from elements.timoshenko_beam import SectionConstitutive, TimoshenkoBeamElement
-from core.dof import DofManager
-from core.assembly import assemble_global_matrices
-from core.boundary_conditions import DirichletBC, NeumannBC, build_load_vector, apply_dirichlet_static, apply_dirichlet_harmonic
-
-def create_ansys_matrices_circle_euler(r):
-    A = np.pi * r**2
-    E_steel = 200E9 # Pa
-    G_steel = 79.3
-    rho_steel = 8E3 #kg/m^3
-    I =  0.25 * np.pi * r**4.
-    J = 0.5 * np.pi * r**4
-
-    cbmx = np.zeros((6,6))
-    cbmx[0,0] = E_steel * A
-    cbmx[1,1] = E_steel * I
-    cbmx[2,2] = E_steel * I
-    cbmx[3,3] = G_steel * J
-
-    cbmd = np.zeros((6,6))
-
-
-    cbmd[0, 0] = rho_steel * A
-    cbmd[1, 1] = rho_steel * A
-    cbmd[2, 2] = rho_steel * A
-    cbmd[3, 3] = 0.5 * rho_steel  * J
-    cbmd[4, 4] = 0.5 * rho_steel  * J
-    cbmd[5, 5] = 0.5 * rho_steel  * J
-    return cbmx, cbmd
+from fe_beam.core.mesh import ElementConnectivity, Mesh, Node
+from fe_beam.elements.timoshenko_beam import SectionConstitutive, TimoshenkoBeamElement
+from fe_beam.core.dof import DofManager
+from fe_beam.core.assembly import assemble_global_matrices
+from fe_beam.core.boundary_conditions import DirichletBC, NeumannBC, build_load_vector, apply_dirichlet_static, apply_dirichlet_harmonic
 
 def run_test():
     # Create mesh
