@@ -11,6 +11,7 @@ src/fe_beam/core/assembly.py
 src/fe_beam/core/boundary_conditions.py
 src/fe_beam/core/dof.py
 src/fe_beam/core/mesh.py
+src/fe_beam/core/postprocessing.py
 src/fe_beam/core/solvers.py
 src/fe_beam/elements/base_element.py
 src/fe_beam/elements/timoshenko_beam.py

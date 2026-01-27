@@ -291,7 +291,9 @@ class ModalSolver:
 
         K_ff = K[free, :][:, free].tocsr()
         M_ff = M[free, :][:, free].tocsr()
-
+        mu_min = eigsh(M_ff, k=1, which="SA", return_eigenvectors=False)[0]
+        mu_max = eigsh(M_ff, k=1, which="LA", return_eigenvectors=False)[0]
+        print("eig(M_ff) min/max:", mu_min, mu_max)
         # Solve generalized eigenproblem on free DOFs:
         #   K_ff v = lambda M_ff v
         # Using eigsh: smallest magnitude eigenvalues by default with which="SM".
@@ -299,7 +301,18 @@ class ModalSolver:
             # Shift-invert around sigma to target eigenvalues near sigma.
             evals, evecs = eigsh(K_ff, k=n_modes, M=M_ff, sigma=float(sigma), which="LM")
         else:
-            evals, evecs = eigsh(K_ff, k=n_modes, M=M_ff, which=which)
+            n = K_ff.shape[0]
+            v0 = np.ones(n)  # deterministic
+
+            # Shift-invert around sigma=0 targets the lowest eigenvalues robustly
+            evals, evecs = eigsh(
+                K_ff, k=n_modes, M=M_ff,
+                sigma=0.0, which="LM",
+                v0=v0,
+                tol=1e-10,
+                maxiter=50000,
+            )
+            #evals, evecs = eigsh(K_ff, k=n_modes, M=M_ff, which=which)
 
         # Clean and sort eigenvalues (ascending)
         evals = np.asarray(evals, dtype=float)

@@ -17,9 +17,9 @@ class ElementConnectivity:
 class Node:
     '''Mesh node in 3d space'''
     id: int 
-    z: float
     x: float 
     y: float 
+    z: float
     
     def coordinates(self) -> np.ndarray:
         return np.array([self.x, self.y, self.z], dtype=float)
@@ -51,6 +51,10 @@ class Mesh:
         if node.id in self.nodes.keys():
             raise KeyError(f'Node {node.id} does already exist!')
         self.nodes[node.id] = node
+    
+    def get_limits(self):
+        tmp = np.array( [v.coordinates() for v in self.nodes.values()])
+        return np.min(tmp, axis=0), np.max(tmp, axis=0)
 
     def show(self) -> None:
         fig, axs = plt.subplots(nrows=3)
