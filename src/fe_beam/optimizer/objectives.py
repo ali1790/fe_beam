@@ -28,8 +28,11 @@ class Constraints:
     def __init__(self):
         self.n_masses = 2
         self.fixed_dofs = {}
+        self.min_distance = 2.
+        self.masses_at_lengths = [[[0., 80.]], [[0, 10E3]]]
 
-        pass
+    def get_mass_distance(self):
+        return self.min_distance
 
 class UserInput:
     def __init__(self):
@@ -277,6 +280,7 @@ class FatigueTestSingle:
         displacement_amplitudes = self.get_displacement_amplitudes(u_full, dofs[self.ids['U']])
         
         moment_amplitudes = self.get_moment_amplitudes(u_full, omega_test, self.user_input.damprat, force_components[3+self.ids['M']])
+        return displacement_amplitudes, moment_amplitudes
         moment_amplitudesX = self.get_moment_amplitudes(u_full, omega_test, self.user_input.damprat, force_components[3+0])
         moment_amplitudesY = self.get_moment_amplitudes(u_full, omega_test, self.user_input.damprat, force_components[3+1])
         moment_amplitudesZ = self.get_moment_amplitudes(u_full, omega_test, self.user_input.damprat, force_components[3+2])
@@ -325,11 +329,20 @@ class FatigueTestSingle:
         x_var = {k: v for k, v in zip(self.dof_var, x_tup)}
         x_dict = {**x_var, **self.constraints.fixed_dofs}
 
+        print(x_dict)
         if self.distance_constraint(x_dict) or self.mass_constraints(x_dict):
             return np.inf
 
-        resulting_moments, resulting_disp = self.run_analysis(x_dict, print_config=self.printouts, print_times=self.printouts, return_val='both')
+        resulting_moments, resulting_disp = self.run_analysis(x_dict )
+        # Calculate normalised least square error between target moment and given model
 
+        # Max ratio between result and target
+        max_overload = np.max( np.abs( resulting_moments[:, 1] ) / np.abs( self.target_moments[self.eval_mask, 1] ) )
+        print(max_overload)
+
+        # List of evaluated constraints
+        if self.excitation_constraint(x_dict, resulting_disp) or  self.min_moment_constraint(resulting_moments):
+            return np.inf
         pass
 
 if __name__=='__main__':
@@ -351,7 +364,8 @@ if __name__=='__main__':
     user_input = UserInput()
     objective = FatigueTestSingle(nx_beam, user_input, constraints)
     test_input = {'L_F': 40, 'Fampl': 1E3, 'mF': 1E3, 'm1': 500, 'L1': 15, 'm2': 100, 'L2': 60}
-    objective.run_analysis(test_input)
+    #objective.run_analysis(test_input)
+    objective(test_input.values())
 
     #print(beam_geometry.section_properties[1]['CBMX'])
     #print(dir(beam_geometry))
