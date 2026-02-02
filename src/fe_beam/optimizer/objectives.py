@@ -10,18 +10,12 @@ from fe_beam.core.dof import DofManager
 from fe_beam.core.boundary_conditions import DirichletBC, apply_dirichlet_harmonic, NeumannBC, build_load_vector
 from fe_beam.elements.point_masses import add_point_masses_to_M, PointMass
 from fe_beam.core.solvers import ModalSolver, HarmonicSolver
-from fe_beam.core.postprocessing import compute_element_end_forces_harmonic
+from fe_beam.core.postprocessing import compute_element_end_forces_harmonic, get_force_indices
 #from fatiguetestoptimizer.Settings import UserInput, Constraints
 from scipy.sparse import issparse
 
-_COMPONENT_INDEX_LOCAL = {
-    "N":  (0, 6),    # Fx1, Fx2
-    "Vy": (1, 7),    # Fy1, Fy2
-    "Vz": (2, 8),    # Fz1, Fz2
-    "T":  (3, 9),    # Mx1, Mx2
-    "My": (4, 10),   # My1, My2
-    "Mz": (5, 11),   # Mz1, Mz2
-}
+COMPONENT_INDEX_LOCAL = get_force_indices()
+
 def max_asym(A):
     if issparse(A):
         D = A - A.T
@@ -36,6 +30,7 @@ class Constraints:
         self.fixed_dofs = {}
 
         pass
+
 class UserInput:
     def __init__(self):
         self.target_moments_path = r'/home/alex/Projects/FatigueTestOptimizer/src/fatiguetestoptimizer/assets/Input_Examples/NR87p5/NR87p5_Edgewise_Testloads.txt'
@@ -74,13 +69,9 @@ def calculate_clamp_mass(l: float, m_extra: float, unit='kg') -> float:
     elif unit=='t':
         return  (m_base + m_clamp) / 10
 
-def create_neumann_bcs(position: float, force: complex, mesh: Mesh, lengthwise_coordinate: int):
-    dofs = ['u', 'v', 'w', 'phix', 'phiy', 'phiz'] # will get them from somewhere else later
-    return [NeumannBC]
-    #print(node_ids)
-    #print(values)
 
     pass
+
 def create_point_masses(masses: List, mesh: Mesh, lengthwise_coordinate: int):
     point_masses = []
     for (position, mass) in masses:
@@ -202,7 +193,7 @@ class FatigueTestSingle:
 
             fl = end_forces[e.id].local  # complex 12-vector
             segs.append((x1, x2, fl))
-        i1, i2 = _COMPONENT_INDEX_LOCAL[component]
+        i1, i2 = COMPONENT_INDEX_LOCAL[component]
 
         xs = []
         ys = []
@@ -273,8 +264,8 @@ class FatigueTestSingle:
         harm_solver = HarmonicSolver()
 
         harm_result = harm_solver.solve_frequency(
-        K=K,
-        M=M,
+        K=K.copy(),
+        M=M_w_pm.copy(),
         omega=omega_test,
         f=f_harm,
         dof_manager=self.fe_problem._dof_manager,
@@ -359,7 +350,7 @@ if __name__=='__main__':
     constraints = Constraints()
     user_input = UserInput()
     objective = FatigueTestSingle(nx_beam, user_input, constraints)
-    test_input = {'L_F': 40, 'Fampl': 10E3, 'mF': 1E3, 'm1': 500, 'L1': 15, 'm2': 10000, 'L2': 60,}
+    test_input = {'L_F': 40, 'Fampl': 1E3, 'mF': 1E3, 'm1': 500, 'L1': 15, 'm2': 100, 'L2': 60}
     objective.run_analysis(test_input)
 
     #print(beam_geometry.section_properties[1]['CBMX'])

@@ -46,6 +46,17 @@ Number = Union[float, complex, np.floating, np.complexfloating]
 # Data containers
 # -----------------------------
 
+def get_force_indices():
+    indices = {
+        "N":  (0, 6),    # Fx1, Fx2
+        "Vy": (1, 7),    # Fy1, Fy2
+        "Vz": (2, 8),    # Fz1, Fz2
+        "T":  (3, 9),    # Mx1, Mx2
+        "My": (4, 10),   # My1, My2
+        "Mz": (5, 11),   # Mz1, Mz2
+    }
+    return indices
+
 @dataclass(frozen=True)
 class EndForces:
     """
