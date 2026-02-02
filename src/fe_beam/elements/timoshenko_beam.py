@@ -9,12 +9,6 @@ from fe_beam.matrices.element_matrices import ElementMatrix
 def check_symmetric(a, rtol=1e-05, atol=1e-08):
     return np.allclose(a, a.T, rtol=rtol, atol=atol)
 
-def upper_triangular_to_symmetric(ut):
-    n = ut.shape[0]
-    for r in range(1, n):
-        for c in range(r):
-            ut[r, c] = ut[c, r]
-    return ut
 
 @dataclass
 class SectionConstitutive:
@@ -35,16 +29,11 @@ class SectionConstitutive:
         if self.C.shape != (6, 6):
             raise ValueError("Section C must be 6x6.")
         if not check_symmetric(self.S):
-            print('Creating full stiffness matrix from upper triangle')
-            #self.S = upper_triangular_to_symmetric(self.S)
+            #print('Creating full stiffness matrix from upper triangle')
             self.S = self.S + self.S.T - np.diag(np.diag(self.S))
-            print(self.S[0,0])
-            print(self.S[0,5])
-            print(self.S[5,0])
         if not check_symmetric(self.C):
-            print('Creating full mass matrix from upper triangle')
+            #print('Creating full mass matrix from upper triangle')
             self.C = self.C + self.C.T - np.diag(np.diag(self.C))
-            #self.C = upper_triangular_to_symmetric(self.C)
 
 
 class TimoshenkoBeamElement(Element):

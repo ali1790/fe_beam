@@ -163,11 +163,12 @@ class HarmonicSolver:
         dirichlet_bcs: Sequence[DirichletBC],
         *,
         C=None,
+        eta = 0
     ) -> HarmonicResult:
         f = np.asarray(f, dtype=complex)
 
         reduced = apply_dirichlet_harmonic(
-            K=K, M=M, omega=float(omega), f=f,
+            K=complex(1, eta) * K, M=M, omega=float(omega), f=f,
             dof_manager=dof_manager,
             dirichlet_bcs=dirichlet_bcs,
             C=C,
@@ -291,29 +292,31 @@ class ModalSolver:
 
         K_ff = K[free, :][:, free].tocsr()
         M_ff = M[free, :][:, free].tocsr()
-        mu_min = eigsh(M_ff, k=1, which="SA", return_eigenvectors=False)[0]
-        mu_max = eigsh(M_ff, k=1, which="LA", return_eigenvectors=False)[0]
-        print("eig(M_ff) min/max:", mu_min, mu_max)
+        k_scale = float(np.max(np.abs(K_ff.diagonal())))
+        m_scale = float(np.max(np.abs(M_ff.diagonal())))
+
+        K_s = K_ff / k_scale
+        M_s = M_ff / m_scale
         # Solve generalized eigenproblem on free DOFs:
         #   K_ff v = lambda M_ff v
         # Using eigsh: smallest magnitude eigenvalues by default with which="SM".
         if sigma is not None:
             # Shift-invert around sigma to target eigenvalues near sigma.
-            evals, evecs = eigsh(K_ff, k=n_modes, M=M_ff, sigma=float(sigma), which="LM")
+            evals_s, evecs = eigsh(K_s, k=n_modes, M=M_s, sigma=float(sigma), which="LM")
         else:
-            n = K_ff.shape[0]
+            n = K_s.shape[0]
             v0 = np.ones(n)  # deterministic
 
             # Shift-invert around sigma=0 targets the lowest eigenvalues robustly
-            evals, evecs = eigsh(
-                K_ff, k=n_modes, M=M_ff,
+            evals_s, evecs = eigsh(
+                K_s, k=n_modes, M=M_s,
                 sigma=0.0, which="LM",
                 v0=v0,
                 tol=1e-10,
                 maxiter=50000,
             )
             #evals, evecs = eigsh(K_ff, k=n_modes, M=M_ff, which=which)
-
+        evals = evals_s * (k_scale / m_scale)
         # Clean and sort eigenvalues (ascending)
         evals = np.asarray(evals, dtype=float)
         evecs = np.asarray(evecs, dtype=float)

@@ -35,8 +35,8 @@ except ImportError as e:
         "scipy is required for postprocessing (scipy.sparse)."
     ) from e
 
-from core.assembly import compute_beam_rotation_matrix_3d, build_beam_T_12x12
-from core.boundary_conditions import DirichletBC
+from fe_beam.core.assembly import compute_beam_rotation_matrix_3d, build_beam_T_12x12
+from fe_beam.core.boundary_conditions import DirichletBC
 
 
 Number = Union[float, complex, np.floating, np.complexfloating]

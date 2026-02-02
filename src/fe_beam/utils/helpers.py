@@ -38,10 +38,10 @@ def assign_properties_to_elements(mesh: Mesh, sectional_properties: Dict[int, Se
         )
     return beam_elements
 
-def create_system_matrices(mesh: Mesh, elements: List[TimoshenkoBeamElement]):
+def create_system_matrices(mesh: Mesh, elements: List[TimoshenkoBeamElement], orientation_vectors: Dict[int, np.ndarray]=None):
     dof_manager = DofManager()
     dof_manager.enumerate_dofs(elements)
-    system = assemble_global_matrices(mesh, elements, dof_manager)
+    system = assemble_global_matrices(mesh, elements, dof_manager, reference_vectors=orientation_vectors)
     return system
     pass
 
@@ -208,7 +208,7 @@ class BeamProperties(object):
 
     def read_section_properties_apdl(self) -> None:
         with open(self.source_file, 'r', encoding='utf8') as i: content = i.readlines()
-        self.section_properties = {}
+        tmp_section_properties = {}
         seclines = {}
         for n, c in enumerate(content):
             if 'sectype' in c and '!' not in c.split('sectype')[0]:
@@ -216,7 +216,7 @@ class BeamProperties(object):
                 seclines[secnum] = n
         
         for secnum, secline in seclines.items():
-            self.section_properties[secnum] = {'CBMX': [None]*6, 'CBMD': [None]*6}
+            tmp_section_properties[secnum] = {'CBMX': [None]*6, 'CBMD': [None]*6}
             end = False
             i = 1
             while not end:
@@ -224,10 +224,19 @@ class BeamProperties(object):
                 if line[0] in ['CBMX', 'CBMD']:
                     tag = line[0]
                     entry_id = int(line[1])
-                    self.section_properties[secnum][tag][entry_id - 1] = [float(x) for x in line[2:2+7-entry_id]]
+                    tmp_section_properties[secnum][tag][entry_id - 1] = [float(x) for x in line[2:2+7-entry_id]]
                     i+=1
                 else:
                     end = True
+
+        self.section_properties = {}
+        for element_id, sec_props in tmp_section_properties.items():
+            cbmx = np.zeros((6,6))
+            cbmd = np.zeros((6,6))
+            for i in range(6):
+                cbmx[i, i:] = sec_props['CBMX'][i]
+                cbmd[i, i:] = sec_props['CBMD'][i]
+            self.section_properties[element_id] = SectionConstitutive(cbmx, cbmd)
 
     def read_section_properties_cdb(self):
         """Reads section properties from .cdb file..
@@ -251,7 +260,13 @@ class BeamProperties(object):
             for cx, cd in zip(cx_raw[i:i+6], cd_raw[i:i+6] ):
                 cbmx_i.append([float(x) for x in cx[1:8-int(cx[0])]])
                 cbmd_i.append([float(x) for x in cd[1:8-int(cd[0])]])
-            self.section_properties[section_number] = {'CBMX': cbmx_i, 'CBMD': cbmd_i}
+        cbmx = np.zeros((6,6))
+        cbmd = np.zeros((6,6))
+        for i in range(6):
+            cbmx[i, i:] = cbmx_i[i]
+            cbmd[i, i:] = cbmd_i[i]
+        print(cbmx)
+        self.section_properties[section_number] = SectionConstitutive(cbmx, cbmd)
 
     def get_geometry(self):
         return self.nodes, self.elements, self.section_properties
@@ -346,11 +361,20 @@ class NXbeam:
         self.mesh = Mesh()
         for node in tqdm(self.nodes, desc='Adding nodes:', unit='nodes'):
             self.mesh.add_node(node)
-        beam_elements = []
+        self.beam_elements = []
+        self.orientation_vectors = {}
+        if self.lengthwise_coordinate == 0:
+            print('foo')
+            orientation_vector = np.array([0., 1., 0.])
+        elif self.lengthwise_coordinate == 2:
+            print('bar')
+            orientation_vector = np.array([0., -1., 0.])
+
         for connectivity in tqdm(self.connectivities, desc='Creating elements:', unit='elements'):
             self.mesh.add_element(connectivity)
             element_id = connectivity.element_id
-            beam_elements.append( 
+            self.orientation_vectors[element_id] = orientation_vector
+            self.beam_elements.append( 
                 TimoshenkoBeamElement(
                     element_id,
                     connectivity.node_ids,
@@ -360,8 +384,8 @@ class NXbeam:
             )
         print('Creating global system matrices')
         self._dof_manager = DofManager()
-        self._dof_manager.enumerate_dofs(beam_elements)
-        system = create_system_matrices(self.mesh, beam_elements)
+        self._dof_manager.enumerate_dofs(self.beam_elements)
+        system = create_system_matrices(self.mesh, self.beam_elements, self.orientation_vectors)
         self.K_global = system.K
         self.M_global = system.M
         pass
