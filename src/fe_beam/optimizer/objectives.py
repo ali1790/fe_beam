@@ -30,6 +30,10 @@ class Constraints:
         self.fixed_dofs = {}
         self.min_distance = 2.
         self.masses_at_lengths = [[[0., 80.]], [[0, 10E3]]]
+        self.u_allowed = 1.
+    
+    def get_u_allowed(self):
+        return self.u_allowed
 
     def get_mass_distance(self):
         return self.min_distance
@@ -106,12 +110,28 @@ class FatigueTestSingle:
         for labela, xa in zip( labels, positions):
             for labelb, xb in zip( labels, positions):
                 if labela!=labelb and np.abs(xa - xb)<d_min:
-                    if self.printouts:
-                        self.console.print(f'Distance constraint violated between {labela} and {labelb}:\n |{xa:.2f} - {xb:.2f}|<{d_min} m', style='bold red')
                     return True
         return False
 
         pass
+
+    def excitation_constraint(self, x: list, displacement)->bool:
+        """Check constraint of max displacement amplitude at force introduction point. 
+           Return True if constraint violated.
+        Args:
+            x (dict): degrees of freedom of optimization problem
+            displacement (array): Array containing displacement solution and  coordinates.
+
+        Returns:
+            bool: True if constraint violated
+        """
+        l_coordinates = displacement[:, 0]
+        u_excitation = np.abs(displacement[:, 1])
+        u_at_excitation = np.interp((x['L_F'],), l_coordinates, u_excitation)[0]
+        u_ratio = np.abs(u_at_excitation / self.constraints.get_u_allowed())
+        if  u_ratio > 1.:
+            print(f'Max excitation constraint violated\n u_max/u_allowed: {u_ratio}')
+        return u_ratio>1
 
     def mass_constraints(self, x: List)->bool:
         """Check if masses comply to position dependent max given by the user.
@@ -129,10 +149,24 @@ class FatigueTestSingle:
         for l_m, m in zip(mass_positions, masses):
             for n, l_r in enumerate(l_ranges):
                 if l_m>=l_r[0] and l_m<l_r[1] and m>m_ranges[n][1]:
-                    if self.printouts:
-                        self.console.print(f'Mass constraint function violated: L_m: {l_m:.2f}, m:   {m:.2f}>{m_ranges[n][1]:.2f}', style='bold red')
                     return True
         return False
+
+    def min_moment_constraint(self, resulting_moment)->bool:
+        """Check if the test moment is larger then the target moment at every position.
+
+        Args:
+            resulting_moment (array): Array containing bending moment amplitudes and coordinates
+
+        Returns:
+            bool: True if constraint is violated
+        """
+        abs_ratio = np.abs(resulting_moment[:, 1]) / np.abs(self.target_moments[:, 1])
+        return_val = np.min(abs_ratio[self.eval_mask])
+        if  return_val<1.:
+            violation_pos = resulting_moment[abs_ratio==return_val, 0][0]
+            print(f'Minimal moment constraint violated:\n M_test / M_target = {return_val:.4e} @ {violation_pos:.2f} m')
+        return return_val<1.
 
     def read_target_moments(self, target_moments_path:str, plot=False):
         '''Read target moment ranges from file'''
@@ -176,9 +210,7 @@ class FatigueTestSingle:
         return np.column_stack([l[order], amp[order]])#, np.array(node_ids, dtype=int)[order]
 
     def get_moment_amplitudes(self, u_full: np.ndarray, omega: float, damprat: float, component: str, average: bool=True):
-        print(component)
         elements = self.fe_problem.beam_elements
-        print(dir( self.fe_problem.beam_elements[0]))
         end_forces = compute_element_end_forces_harmonic(
             mesh = self.fe_problem.mesh,
             elements= elements,
@@ -290,7 +322,6 @@ class FatigueTestSingle:
         plt.legend()
         plt.show()
 
-
     def __post_init__(self):
         self.n_masses = self.constraints.n_masses
         self.mesh = self.fe_problem.mesh
@@ -309,6 +340,7 @@ class FatigueTestSingle:
         else: 
             self.ids['frequency'] = 0
 
+        # Directions to be used based on global coordinate system and test direction
         if self.fe_problem.lengthwise_coordinate==0 and self.user_input.test_direction=='Flap':
             self.ids['U'] = 2
             self.ids['M'] = 1
@@ -324,26 +356,26 @@ class FatigueTestSingle:
         
         self.ids['F'] = self.ids['U']
 
-
     def __call__(self, x_tup):
         x_var = {k: v for k, v in zip(self.dof_var, x_tup)}
         x_dict = {**x_var, **self.constraints.fixed_dofs}
 
-        print(x_dict)
+        self.mass_constraints(x_dict)
         if self.distance_constraint(x_dict) or self.mass_constraints(x_dict):
             return np.inf
 
-        resulting_moments, resulting_disp = self.run_analysis(x_dict )
+        resulting_disp, resulting_moments = self.run_analysis(x_dict )
         # Calculate normalised least square error between target moment and given model
 
         # Max ratio between result and target
-        max_overload = np.max( np.abs( resulting_moments[:, 1] ) / np.abs( self.target_moments[self.eval_mask, 1] ) )
-        print(max_overload)
+        max_overload = np.max( np.abs( resulting_moments[self.eval_mask, 1] ) / np.abs( self.target_moments[self.eval_mask, 1] ) )
 
         # List of evaluated constraints
-        if self.excitation_constraint(x_dict, resulting_disp) or  self.min_moment_constraint(resulting_moments):
+        if self.excitation_constraint(x_dict, resulting_disp) or self.min_moment_constraint(resulting_moments):
             return np.inf
-        pass
+            
+        print(max_overload)
+        return max_overload
 
 if __name__=='__main__':
     apdl_file = r'/home/alex/Projects/FatigueTestOptimizer/src/fatiguetestoptimizer/assets/Input_Examples/NR87p5/NR87p5_S21_L75_woFinish.apdl'
@@ -363,10 +395,5 @@ if __name__=='__main__':
     constraints = Constraints()
     user_input = UserInput()
     objective = FatigueTestSingle(nx_beam, user_input, constraints)
-    test_input = {'L_F': 40, 'Fampl': 1E3, 'mF': 1E3, 'm1': 500, 'L1': 15, 'm2': 100, 'L2': 60}
-    #objective.run_analysis(test_input)
+    test_input = {'L_F': 40, 'Fampl': 1E2, 'mF': 1E3, 'L1': 15, 'm1': 500, 'L2': 60, 'm2': 100}
     objective(test_input.values())
-
-    #print(beam_geometry.section_properties[1]['CBMX'])
-    #print(dir(beam_geometry))
-    pass

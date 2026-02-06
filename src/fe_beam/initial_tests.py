@@ -1,120 +1,35 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from scipy.sparse.linalg import spsolve
-from fe_beam.core.mesh import ElementConnectivity, Mesh, Node
-from fe_beam.elements.timoshenko_beam import SectionConstitutive, TimoshenkoBeamElement
-from fe_beam.core.dof import DofManager
-from fe_beam.core.assembly import assemble_global_matrices
-from fe_beam.core.boundary_conditions import DirichletBC, NeumannBC, build_load_vector, apply_dirichlet_static, apply_dirichlet_harmonic
+from fe_beam.utils.helpers import BeamProperties, NXbeam
+from fe_beam.core.mesh import Node, ElementConnectivity
+from fe_beam.optimizer.objectives import Constraints, UserInput, FatigueTestSingle
+from fe_beam.optimizer.optimizer import run_optimzation
 
-def run_test():
-    # Create mesh
-    l_beam = 10. #m
-    n_nodes = 10
-    r_beam = 0.1 # m
-    mesh = create_mesh(l_beam, n_nodes)
-
-    # Assign material properties to elements
-    #cbmx, cbmd = create_ansys_matrices_circle_euler(r_beam)
-    cbmx = np.diag([1e7, 1e5, 1e5, 1e5, 5e4, 5e4])
-    cbmd = np.diag([10.0, 1.0, 1.0, 1.0, 0.5, 0.5])
-    section = SectionConstitutive(
-                S=cbmx,
-                C=cbmd,
-                # Falls ANSYS-Reihenfolge abweicht: hier anpassen
-                order=("ex", "kx", "ky", "kz", "gy", "gz"),
-                )
-    beam_elements = []
-    for element in mesh.get_all_elements():
-        beam_elements.append( 
-            TimoshenkoBeamElement(
-                element.element_id,
-                element.node_ids,
-                mesh.get_element_length(element.element_id),
-                section
-            )
-        )
-    # Create global system matrices
-    dof_manager = DofManager()
-    dof_manager.enumerate_dofs(beam_elements)
-    ndof = dof_manager.number_of_dofs()
-    system = assemble_global_matrices(mesh, beam_elements, dof_manager)
-
-    dirichlet_bcs = [
-        DirichletBC(0, "u", 0.0),
-        DirichletBC(0, "v", 0.0),
-        DirichletBC(0, "w", 0.0),
-        DirichletBC(0, "phix", 0.0),
-        DirichletBC(0, "phiy", 0.0),
-        DirichletBC(0, "phiz", 0.0),
-    ]
-    neumann_bcs = [
-        NeumannBC(n_nodes-1, "u", -1000.0)  # downward force at free end
-    ]
-
-    f_static = build_load_vector(
-        dof_manager=dof_manager,
-        ndof=ndof,
-        neumann_bcs=neumann_bcs,
-        dtype=float
-    )
-    reduced_system = apply_dirichlet_static(
-        K=system.K,
-        f=f_static,
-        dof_manager=dof_manager,
-        dirichlet_bcs=dirichlet_bcs
-    )
-    u_free = spsolve(reduced_system.A, reduced_system.f)
-    u_full = reduced_system.reconstruct_full_solution(u_free)
-
-    sol = np.zeros((n_nodes, 9))
-    for i in range(n_nodes):
-        sol[i, :3] = mesh.nodes[i].coordinates()
-
-        u = u_full[dof_manager.get_dof_index(i, "u")]
-        v = u_full[dof_manager.get_dof_index(i, "v")]
-        w = u_full[dof_manager.get_dof_index(i, "w")]
-
-        phix = u_full[dof_manager.get_dof_index(i, "phix")]
-        phiy = u_full[dof_manager.get_dof_index(i, "phiy")]
-        phiz = u_full[dof_manager.get_dof_index(i, "phiz")]
-
-        sol[i, 3] = u
-        sol[i, 4] = v
-        sol[i, 5] = w
-
-        sol[i, 6] = phix
-        sol[i, 7] = phiy
-        sol[i, 8] = phiz
-    plot_solution(sol)
-
-def plot_solution(solution):
-    fig, axs = plt.subplots(ncols=2)
-    axs[0].plot(solution[:, 2], solution[:, 3], label='Ux')
-    axs[0].plot(solution[:, 2], solution[:, 4], label='Uy')
-    axs[0].plot(solution[:, 2], solution[:, 5], label='Uz')
-    axs[0].legend()
-    
-    axs[1].plot(solution[:, 2], solution[:, 6], label=r'$\phi_x$')
-    axs[1].plot(solution[:, 2], solution[:, 7], label=r'$\phi_y$')
-    axs[1].plot(solution[:, 2], solution[:, 8], label=r'$\phi_z$')
-    axs[1].legend()
-    plt.show()
-
-def create_mesh(l_beam, n_nodes):
-    mesh = Mesh()
-    # Create nodes for beam pointing in z direction
-    z = np.linspace(0, l_beam, endpoint=True, num=n_nodes )
-    for i in range(n_nodes):
-        mesh.add_node( Node(i, z[i], 0., 0.) )
-
-    # Create elements 
-    for i in range(n_nodes - 1):
-        mesh.add_element( ElementConnectivity( i, [i, i + 1] ) )
-    
-    #mesh.show()
-    return mesh
 
 if __name__=='__main__':
-    run_test()
+    apdl_file = r'/home/alex/Projects/FatigueTestOptimizer/src/fatiguetestoptimizer/assets/Input_Examples/NR87p5/NR87p5_S21_L75_woFinish.apdl'
+    beam_properties = BeamProperties(apdl_file)
+    nx_beam = NXbeam(beam_properties)
+    constraints = Constraints()
+    user_input = UserInput()
+
+    bounds = [(20., 40.), #L_F
+              (0, 100E3), #F
+              (0., 20), #mF 
+              (15., 32.), #L1 
+              (0., 20), #m1 
+              (32., 75.), #L2 
+              (0 , 20), #m2 
+              ]
+    mass_limits_x = [[0, 25], [25, 40], [40, 45], [45, 50], [50, 55], [55, 60], [60, 100]]
+    mass_limits_m = [[0, 20E3], [0, 10E3], [0, 5E3], [0, 3.E3], [0, 2.E3], [0, 1.E3], [0, 0.5E3]]
+    masses_at_lengths = [mass_limits_x, mass_limits_m]
+    constraints.masses_at_lengths = masses_at_lengths
+    objective = FatigueTestSingle(nx_beam, user_input, constraints)
+    out_dir = r'/home/alex/Projects/tests'
+    #test_input = {'L_F': 40, 'Fampl': 5E3, 'mF': 1E3, 'L1': 15, 'm1': 500, 'L2': 60, 'm2': 100}
+    #objective(test_input.values())
+    run_optimzation(objective, bounds, {}, out_dir)
+
     
+
+    pass

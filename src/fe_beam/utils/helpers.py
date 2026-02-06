@@ -147,6 +147,8 @@ class BeamProperties(object):
             else:
                 i+=1
 
+        self.connectivities = [ElementConnectivity(k, v) for k, v in self.elements.items()]
+
     def read_beam_elements_cdb(self)->None:
         """Reads element definitions from .cdb file..
         """
@@ -187,7 +189,7 @@ class BeamProperties(object):
         n_start = False
         n_end = False
 
-        self.nodes = {}
+        self.nodes = []
         with open(self.source_file, 'r', encoding='utf8') as i:
             line = i.readline()
             while not n_end:
@@ -197,7 +199,8 @@ class BeamProperties(object):
                     linelist = line.split()
                     node_id = int(linelist[0])
                     if node_id in needed_nodes:
-                        self.nodes[node_id] = [float(s) for s in linelist[3:] ]
+                        coordinates = [float(s) for s in linelist[3:] ]
+                        self.nodes.append(Node(node_id, coordinates[0], coordinates[1], coordinates[2]))
                     line = i.readline()
                 elif n_trigger in line:
                     line = i.readline()
@@ -315,11 +318,42 @@ class BeamProperties(object):
             M+=np.array([ F * max([(center - xi), 0]) for xi in L])
         return np.column_stack([L, M])
 
-@dataclass
 class NXbeam:
-    nodes: List[Node]
-    connectivities: List[ElementConnectivity]
-    section_properties: Dict[int, SectionConstitutive]
+    def __init__(self, beam_properties):
+        self.nodes = beam_properties.nodes
+        self.connectivities = beam_properties.connectivities
+        self.section_properties = beam_properties.section_properties
+        self.find_lengthwise_coordinate()
+        self.find_start_end()
+        self.mesh = Mesh()
+        for node in tqdm(self.nodes, desc='Adding nodes:', unit='nodes'):
+            self.mesh.add_node(node)
+        self.beam_elements = []
+        self.orientation_vectors = {}
+        if self.lengthwise_coordinate == 0:
+            orientation_vector = np.array([0., 1., 0.])
+        elif self.lengthwise_coordinate == 2:
+            orientation_vector = np.array([0., -1., 0.])
+
+        for connectivity in tqdm(self.connectivities, desc='Creating elements:', unit='elements'):
+            self.mesh.add_element(connectivity)
+            element_id = connectivity.element_id
+            self.orientation_vectors[element_id] = orientation_vector
+            self.beam_elements.append( 
+                TimoshenkoBeamElement(
+                    element_id,
+                    connectivity.node_ids,
+                    self.mesh.get_element_length(element_id),
+                    self.section_properties[element_id]
+                )
+            )
+        print('Creating global system matrices')
+        self._dof_manager = DofManager()
+        self._dof_manager.enumerate_dofs(self.beam_elements)
+        system = create_system_matrices(self.mesh, self.beam_elements, self.orientation_vectors)
+        self.K_global = system.K
+        self.M_global = system.M
+        pass
 
     def find_lengthwise_coordinate(self):
         '''
@@ -348,47 +382,6 @@ class NXbeam:
 
     def get_system_matrices(self):
         return self.K_global.copy(), self.M_global.copy()
-
-    def create_additional_masses(self, additional_masses, positions):
-        pass
-
-    def apply_harmonic_force():
-        pass
-
-    def __post_init__(self):
-        self.find_lengthwise_coordinate()
-        self.find_start_end()
-        self.mesh = Mesh()
-        for node in tqdm(self.nodes, desc='Adding nodes:', unit='nodes'):
-            self.mesh.add_node(node)
-        self.beam_elements = []
-        self.orientation_vectors = {}
-        if self.lengthwise_coordinate == 0:
-            print('foo')
-            orientation_vector = np.array([0., 1., 0.])
-        elif self.lengthwise_coordinate == 2:
-            print('bar')
-            orientation_vector = np.array([0., -1., 0.])
-
-        for connectivity in tqdm(self.connectivities, desc='Creating elements:', unit='elements'):
-            self.mesh.add_element(connectivity)
-            element_id = connectivity.element_id
-            self.orientation_vectors[element_id] = orientation_vector
-            self.beam_elements.append( 
-                TimoshenkoBeamElement(
-                    element_id,
-                    connectivity.node_ids,
-                    self.mesh.get_element_length(element_id),
-                    self.section_properties[element_id]
-                )
-            )
-        print('Creating global system matrices')
-        self._dof_manager = DofManager()
-        self._dof_manager.enumerate_dofs(self.beam_elements)
-        system = create_system_matrices(self.mesh, self.beam_elements, self.orientation_vectors)
-        self.K_global = system.K
-        self.M_global = system.M
-        pass
 
         
 
