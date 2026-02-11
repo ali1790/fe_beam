@@ -22,7 +22,8 @@ class SectionConstitutive:
     S: np.ndarray
     C: np.ndarray
     order: Tuple[str, str, str, str, str, str] = ("ex", "kx", "ky", "kz", "gy", "gz")
-
+    order_S: Tuple[str, ...] = ("ex","kx","ky","kz","gy","gz")
+    order_C: Tuple[str, ...] = ("u","v","w","phix","phiy","phiz")
     def __post_init__(self):
         if self.S.shape != (6, 6):
             raise ValueError("Section S must be 6x6.")
@@ -45,7 +46,8 @@ class TimoshenkoBeamElement(Element):
     """
 
     DOF_TYPES = ["u", "v", "w", "phix", "phiy", "phiz"]
-
+    BASE_S = ("ex","kx","ky","kz","gy","gz")
+    BASE_C = ("u","v","w","phix","phiy","phiz")
     def __init__(
         self,
         element_id: int,
@@ -213,16 +215,13 @@ class TimoshenkoBeamElement(Element):
         return Nq
 
     # --- Order-Mapping: ANSYS/CBMX order -> base order ---
-    def _permute_6(self, order: Sequence[str]) -> np.ndarray:
+    def _permute_6(self, order: tuple[str, ...], base: tuple[str, ...]) -> np.ndarray:
         """
-        Liefert Permutationsmatrix P (6x6) so, dass:
-          vec_in_base = P * vec_in_order
-        bzw. für Matrizen:
-          A_in_base = P * A_in_order * P^T
+        Returns permutation matrix P such that:
+        v_base = P @ v_order
+        and thus:
+        A_base = P @ A_order @ P.T
         """
-        base = ("ex", "kx", "ky", "kz", "gy", "gz")
-        if len(order) != 6:
-            raise ValueError("order muss 6 Einträge haben.")
         idx = {name: i for i, name in enumerate(order)}
         P = np.zeros((6, 6), dtype=float)
         for i_base, name in enumerate(base):
@@ -232,11 +231,11 @@ class TimoshenkoBeamElement(Element):
         return P
 
     def _S_in_base(self) -> np.ndarray:
-        P = self._permute_6(self.section.order)
+        P = self._permute_6(self.section.order_S, base=self.BASE_S)
         return P @ self.section.S @ P.T
 
     def _C_in_base(self) -> np.ndarray:
-        P = self._permute_6(self.section.order)
+        P = self._permute_6(self.section.order_C, base=self.BASE_C)
         return P @ self.section.C @ P.T
 
     # --- Build 12x12 matrices ---
